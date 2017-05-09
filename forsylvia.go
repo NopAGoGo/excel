@@ -5,7 +5,6 @@ import (
 	"strconv"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/Luxurioust/excelize"
-	"github.com/sunday9th/forsylvia/models"
 	"fmt"
 	"github.com/go-xorm/xorm"
 )
@@ -62,7 +61,7 @@ func main() {
 
 func xlsx2db() error {
 	// 建表
-	if err := models.F.Sync(models.Txn{}); err != nil {
+	if err := F.Sync(Txn{}); err != nil {
 		return err
 	}
 	// 读取 xlsx
@@ -73,8 +72,8 @@ func xlsx2db() error {
 	// 读取所有行
 	rows := fileSource.GetRows("sheet1")
 	// 筛选东西食堂午餐数据保存到数据库
-	ml := make([]models.Txn, 0)
-	m := models.Txn{}
+	ml := make([]Txn, 0)
+	m := Txn{}
 	for index, row := range rows {
 		if index == 0 {
 			header = row
@@ -103,15 +102,15 @@ func xlsx2db() error {
 		ml = append(ml, m)
 		// 每80条执行一次保存
 		if len(ml) == 80 {
-			_, err := models.F.Insert(ml)
+			_, err := F.Insert(ml)
 			if err != nil {
 				return err
 			}
-			ml = make([]models.Txn, 0)
+			ml = make([]Txn, 0)
 		}
 	}
 	// 保存最后不到80条的数据
-	_, err = models.F.Insert(ml)
+	_, err = F.Insert(ml)
 	if err != nil {
 		return err
 	}
@@ -120,15 +119,15 @@ func xlsx2db() error {
 
 func spiltData() error {
 	// 获取日期列表
-	dateList := make([]models.Txn, 0)
-	models.F.Asc("tran_date_short").Distinct("tran_date_short").Find(&dateList)
+	dateList := make([]Txn, 0)
+	F.Asc("tran_date_short").Distinct("tran_date_short").Find(&dateList)
 	// 按日循环
 	for _, date := range dateList {
 		// 创建当天 xlsx 文件
 		fileSplit := excelize.CreateFile()
 		// 获取当天活动机器列表
-		machineList := make([]models.Txn, 0)
-		models.F.Where("tran_date_short = ?", date.TranDateShort).Asc("machine_name").Distinct("machine_name").Find(&machineList)
+		machineList := make([]Txn, 0)
+		F.Where("tran_date_short = ?", date.TranDateShort).Asc("machine_name").Distinct("machine_name").Find(&machineList)
 		// 循环每个活动机器一个 sheet 页
 		for sheetIndex, machine := range machineList {
 			// 创建当天 xlsx 文件时自带 Sheet1
@@ -144,8 +143,8 @@ func spiltData() error {
 			}
 
 			// 获取当天该机器的所有交易，按金额降序
-			txnList := make([]models.Txn, 0)
-			models.F.Where("tran_date_short = ? and machine_name = ?", date.TranDateShort, machine.MachineName).Desc("amount").Find(&txnList)
+			txnList := make([]Txn, 0)
+			F.Where("tran_date_short = ? and machine_name = ?", date.TranDateShort, machine.MachineName).Desc("amount").Find(&txnList)
 
 			// rowIndex 代替循环次数，在循环中需被修改
 			rowIndex := 0
@@ -219,14 +218,14 @@ func summaryData(news string) error {
 		return nil
 	}
 	// 获取日期列表
-	dateList := make([]models.Txn, 0)
-	models.F.Asc("tran_date_short").Distinct("tran_date_short").Find(&dateList)
+	dateList := make([]Txn, 0)
+	F.Asc("tran_date_short").Distinct("tran_date_short").Find(&dateList)
 
 	fileSummary := excelize.CreateFile()
 
 	// 当月所有活动机器列表
-	allMachineList := make([]models.Txn, 0)
-	models.F.Asc("machine_id").Distinct("machine_id", "machine_name").Where("machine_name like ?", news_sql).Find(&allMachineList)
+	allMachineList := make([]Txn, 0)
+	F.Asc("machine_id").Distinct("machine_id", "machine_name").Where("machine_name like ?", news_sql).Find(&allMachineList)
 
 
 	// rowIndex
@@ -243,8 +242,8 @@ func summaryData(news string) error {
 		titleDate = date.TranDateShort
 
 		// 当天活动机器列表
-		machineList := make([]models.Txn, 0)
-		models.F.Where("tran_date_short = ? and machine_name like ?", date.TranDateShort,news_sql).Asc("machine_id").Distinct("machine_id", "machine_name").Find(&machineList)
+		machineList := make([]Txn, 0)
+		F.Where("tran_date_short = ? and machine_name like ?", date.TranDateShort,news_sql).Asc("machine_id").Distinct("machine_id", "machine_name").Find(&machineList)
 
 		// 两天一行，偶数天换行
 		xStart := rune('A')
@@ -271,8 +270,8 @@ func summaryData(news string) error {
 
 			for _, machine := range machineList {
 				if machineIterator == machine {
-					txn := new(models.Txn)
-					total, err := models.F.Where("tran_date_short = ? and machine_id = ? and machine_name = ? and amount = ?",
+					txn := new(Txn)
+					total, err := F.Where("tran_date_short = ? and machine_id = ? and machine_name = ? and amount = ?",
 						date.TranDateShort, machineIterator.MachineID, machineIterator.MachineName, 4).Sums(txn, "count", "amount")
 					if err != nil {
 						return err
